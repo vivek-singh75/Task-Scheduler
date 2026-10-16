@@ -3,12 +3,15 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 
 import { z } from "zod";
+import { type } from "node:os";
 
 const app=  express();
 
 app.use(express.json())
 
-async function createMCPserver() {
+const allTask = []
+
+function createMCPServer() {
   const server = new McpServer({
     name: "task scheduler server",
     version: "1.0.0"
@@ -16,16 +19,22 @@ async function createMCPserver() {
 
 
   server.tool(
-    "create task",
+    "createTask",
     "create a new task ",
     {
       title : z.string(),
       description : z.string(),
-      time : z.number()
+      time : z.string()
     },
 
     async ({title , description, time}) => {
       console.log("creating tasks" , {title, description, time});
+
+      allTask.push({
+        title: title,
+        description: description,
+        time : time
+      })
 
       return{
         content:[
@@ -44,6 +53,26 @@ async function createMCPserver() {
       }
     }
   )
+
+  server.tool(
+    "listTask",
+    "list all task",
+    {},
+    
+    async () => {
+
+      console.log("all scheduled task are" , allTask)
+
+      return{
+        content:[
+          {
+            type: "text",
+            text: JSON.stringify(allTask)
+          }
+        ]
+      }
+    }
+  )
 // can add more tools here
 
   return server
@@ -52,7 +81,7 @@ async function createMCPserver() {
 app.post("/mcp" , async(req , res)=>{
 
   try {
-    const McpServer = new createMCPserver();
+    const McpServer =  createMCPServer();
 
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined
@@ -60,7 +89,7 @@ app.post("/mcp" , async(req , res)=>{
 
     await McpServer.connect(transport);
 
-    await transport.handleRequest(res , res , req.body);
+    await transport.handleRequest(req , res , req.body);
 
   } catch (error) {
 
